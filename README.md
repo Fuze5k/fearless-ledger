@@ -26,6 +26,9 @@ data:
 
 Every number shows its sample ("4 of 5 series"). The tool highlights options; the coach decides.
 
+How it works and why: [METHODOLOGY.md](METHODOLOGY.md). How it was built with an AI agent and JetBrains
+tools: [AI_SHOWCASE.md](AI_SHOWCASE.md).
+
 ## Run it
 
 The hosted demo is rebuilt on every push by `.github/workflows/pages.yml`, which clones the data, runs the
