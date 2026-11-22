@@ -10,7 +10,7 @@ settings. This file is the honest account of who did what, including what did no
   and these documents, ran the builds and checked the app in a browser.
 - **WebStorm 2026.3** for the project: project model and excludes, the ESLint inspection profile and a full
   inspection pass. The `.idea/` folder is committed so the settings are part of the repo.
-- **JetBrains Air**: see "Air session" below.
+- **JetBrains Air** in WebStorm with the Claude agent, for the "Copy as text" feature: see "Air session" below.
 - **Privacy:** the data license asks that any AI tool's option to keep inputs out of training is on. "Help improve
   Claude" was switched off before the data was opened.
 
@@ -67,7 +67,25 @@ would look precise and not be.
 
 ## Air session
 
-*To be added after the session: the prompt, what the agent did inside Air, the review, screenshots.*
+In WebStorm 2026.3 I set up JetBrains Air with the Claude agent (terminal mode, the native Claude provider) and
+turned the other agents (Junie, Codex, Copilot) off, so there was one agent per project. Air does not need a
+JetBrains AI plan for this: it runs the locally installed Claude Code with its own subscription.
+
+The task was small on purpose, so the result is easy to check: a "Copy as text" button on the Series sheet that
+puts the sheet into the clipboard as plain text for a team Discord, with the header, key tendencies, "How to beat
+them" and our plan per game, each line with its evidence in brackets. The prompt asked to reuse `insights()` and
+`howToWin()`, not to change what the sheet shows, to show the clipboard error instead of failing silently, and to
+run lint and build without committing.
+
+A Claude Code session started in the project folder did the work, and Air in WebStorm registered it as an agent
+session of this project (WebStorm's log records it as the project's current agent identity). It changed two files,
+`web/src/SeriesSheet.tsx` and `web/src/index.css`, about 80 lines: a small converter that turns the insight text
+(fragments and bold only) into plain text and refuses anything it cannot convert, the plan lines, and a button that
+shows "Copied" for two seconds or "Copy failed: ..." with the reason. Lint and build were clean.
+
+Then I checked it outside the session: read the diff, ran lint and build again, and drove the built app in a
+headless browser. The copied text matched the sheet, the label went back after two seconds, and with the clipboard
+blocked the page showed the error. It is committed as ce30abd.
 
 ## What did not work, and feedback for JetBrains
 
