@@ -79,7 +79,7 @@ run lint and build without committing.
 
 A Claude Code session started in the project folder did the work, and Air in WebStorm registered it as an agent
 session of this project (WebStorm's log records it as the project's current agent identity). It changed two files,
-`web/src/SeriesSheet.tsx` and `web/src/index.css`, about 80 lines: a small converter that turns the insight text
+`web/src/SeriesSheet.tsx` and `web/src/index.css`, about 90 added lines: a small converter that turns the insight text
 (fragments and bold only) into plain text and refuses anything it cannot convert, the plan lines, and a button that
 shows "Copied" for two seconds or "Copy failed: ..." with the reason. Lint and build were clean.
 
