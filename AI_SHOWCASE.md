@@ -87,11 +87,19 @@ Then I checked it outside the session: read the diff, ran lint and build again, 
 headless browser. The copied text matched the sheet, the label went back after two seconds, and with the clipboard
 blocked the page showed the error. It is committed as ce30abd.
 
+The session shows in WebStorm's Agent Sessions panel (Air) for this project, next to the Agents page with only the
+Claude agent turned on:
+
+![WebStorm Agent Sessions panel with the Copy as text session, and the Agents page with Claude enabled](docs/air-agent-sessions.jpg)
+
 ## What did not work, and feedback for JetBrains
 
 - **An agent cannot drive the IDE's UI.** The agent ran in the Claude desktop app and could click in WebStorm but
   not type in it (the computer-use tool restricts IDEs to clicks on purpose). Anything that needs a typed prompt in
   the IDE, such as starting an Air session, has to be done by a person.
+- **Reopening a terminal-mode session stops at a prompt.** Opening the finished session from Agent Sessions resumes
+  it in the IDE terminal (`claude --resume`), which first asks Claude Code's folder-trust question and waits for a
+  key press. So I did not get to Air's "Review Code" pass on this change; the review above was done by hand.
 - **Headless inspections need the IDE closed.** `inspect.sh` refuses to run while WebStorm is open ("Only one
   instance"). A way to run the project's inspections against the running IDE from the command line would make them
   easy to use in an agent's loop.
