@@ -1,6 +1,7 @@
-import { denialTable, pct } from './fearless'
-import { howToWin } from './howToWin'
-import { insights } from './insights'
+import { Fragment, isValidElement, useEffect, useState, type ReactNode } from 'react'
+import { denialTable, pct, type PlannedGame } from './fearless'
+import { howToWin, type Lever } from './howToWin'
+import { insights, type Insight } from './insights'
 import { loadPlan } from './planStore'
 import { fmtDate, record } from './shared'
 import { ROLES, type Counted, type TeamWindow } from './types'
@@ -22,6 +23,58 @@ function Champs({ items, n, of }: { items: Counted; n: number; of: number }) {
   )
 }
 
+/** The visible text of an insight or lever (fragments, <b> and plain values only). */
+function plainText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number' || typeof node === 'bigint') return String(node)
+  if (Array.isArray(node)) return node.map(plainText).join('')
+  if (isValidElement<{ children?: ReactNode }>(node) && (typeof node.type === 'string' || node.type === Fragment))
+    return plainText(node.props.children)
+  throw new Error('An insight contains something that cannot be copied as text')
+}
+
+const result = (g: PlannedGame) => (g.played ? (g.won === null ? ' ✓' : g.won ? ' W' : ' L') : '')
+
+function planLine(g: PlannedGame, n: number): string {
+  const ours = ROLES.filter((r) => g.us[r]).map((r) => `${r} ${g.us[r]}`)
+  const theirs = ROLES.filter((r) => g.them[r]).map((r) => g.them[r])
+  const parts = [
+    g.side ? `${g.side} side` : '',
+    ours.join(', '),
+    theirs.length ? `their comp: ${theirs.join(', ')}` : '',
+    g.note ? `note: ${g.note}` : '',
+  ].filter(Boolean)
+  return `G${n}${result(g)}: ${parts.length ? parts.join(' · ') : 'nothing planned'}`
+}
+
+/** The sheet as plain text for a team chat: header, tendencies, levers, our plan; evidence in brackets. */
+function sheetText(o: {
+  title: string
+  header: string
+  tendencies: Insight[]
+  levers: Lever[]
+  format: number
+  planned: { g: PlannedGame; n: number }[] | null
+}): string {
+  const items = (rows: { text: ReactNode; evidence: string }[]) =>
+    rows.length ? rows.map((r) => `- ${plainText(r.text)} (${r.evidence})`) : ['- none in this window']
+  return [
+    o.title,
+    o.header,
+    '',
+    'Key tendencies',
+    ...items(o.tendencies),
+    '',
+    'How to beat them',
+    ...items(o.levers),
+    '',
+    `Our plan (Bo${o.format})`,
+    ...(o.planned ? o.planned.map(({ g, n }) => planLine(g, n)) : ['No plan saved for this matchup yet.']),
+  ].join('\n')
+}
+
+type CopyState = { kind: 'idle' } | { kind: 'copied' } | { kind: 'failed'; message: string }
+
 interface Props {
   us: { id: string; name: string; w: TeamWindow }
   them: { id: string; name: string; w: TeamWindow }
@@ -34,29 +87,53 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
   const planned = plan.games.slice(0, plan.format).map((g, i) => ({ g, n: i + 1 }))
   const anyPlan = planned.some(({ g }) => ROLES.some((r) => g.us[r] || g.them[r]) || g.note)
   const deny = denialTable(w.players, us.w.players, new Set()).slice(0, 8)
+  const tendencies = insights(w)
+  const levers = howToWin(w, 'opponent').slice(0, 6)
+  const title = `${us.name} vs ${them.name}`
+  const header =
+    `Fearless series sheet · ${them.name}: ${w.series} series (${record(w.series_won, w.series_lost, w.series)}), ` +
+    `${w.games} games, ${fmtDate(w.from)} - ${fmtDate(w.to)} (${windowLabel})`
+
+  const [copy, setCopy] = useState<CopyState>({ kind: 'idle' })
+  useEffect(() => {
+    if (copy.kind !== 'copied') return
+    const t = window.setTimeout(() => setCopy({ kind: 'idle' }), 2000)
+    return () => window.clearTimeout(t)
+  }, [copy])
+
+  const copyAsText = async () => {
+    try {
+      // Absent outside a secure context (plain http on a non-localhost host).
+      if (!navigator.clipboard) throw new Error('the clipboard is not available on this page (it needs https)')
+      const text = sheetText({ title, header, tendencies, levers, format: plan.format, planned: anyPlan ? planned : null })
+      await navigator.clipboard.writeText(text)
+      setCopy({ kind: 'copied' })
+    } catch (e) {
+      setCopy({ kind: 'failed', message: e instanceof Error ? e.message : String(e) })
+    }
+  }
 
   return (
     <div className="sheet">
       <div className="sheet-actions">
         <p className="hint">One page for the desk. Uses the plan saved in the Series planner for this matchup.</p>
-        <button onClick={() => window.print()}>Print / save as PDF</button>
+        <div className="sheet-buttons">
+          {copy.kind === 'failed' && <span className="error" role="alert">Copy failed: {copy.message}</span>}
+          <button onClick={copyAsText}>{copy.kind === 'copied' ? 'Copied' : 'Copy as text'}</button>
+          <button onClick={() => window.print()}>Print / save as PDF</button>
+        </div>
       </div>
       <article className="sheet-page">
         <header className="sheet-head">
-          <h2>
-            {us.name} vs {them.name}
-          </h2>
-          <p>
-            Fearless series sheet · {them.name}: {w.series} series ({record(w.series_won, w.series_lost, w.series)}), {w.games} games,{' '}
-            {fmtDate(w.from)} - {fmtDate(w.to)} ({windowLabel})
-          </p>
+          <h2>{title}</h2>
+          <p>{header}</p>
         </header>
 
         <div className="sheet-cols">
           <section>
             <h3>Key tendencies</h3>
             <ul className="sheet-list one">
-              {insights(w).map((i, k) => (
+              {tendencies.map((i, k) => (
                 <li key={k}>
                   {i.text} <small>({i.evidence})</small>
                 </li>
@@ -66,7 +143,7 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
           <section>
             <h3>How to beat them</h3>
             <ul className="sheet-list one">
-              {howToWin(w, 'opponent').slice(0, 6).map((l, k) => (
+              {levers.map((l, k) => (
                 <li key={k}>
                   {l.text} <small>({l.evidence})</small>
                 </li>
@@ -181,7 +258,7 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
                   <tr key={n}>
                     <td>
                       G{n}
-                      {g.played ? (g.won === null ? ' ✓' : g.won ? ' W' : ' L') : ''}
+                      {result(g)}
                     </td>
                     <td>{g.side ?? '-'}</td>
                     {ROLES.map((r) => (

@@ -169,6 +169,7 @@ button:disabled { opacity: .5; cursor: default; }
 
 /* Series sheet: a paper page on screen and in print */
 .sheet-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.sheet-buttons { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sheet-page { background: #fff; color: #111; border-radius: 8px; padding: 18px 22px; font-size: 12px; line-height: 1.35; max-width: 1100px; overflow-x: auto; }
 .sheet-page h2 { font-size: 18px; }
 .sheet-page h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #0a6c96; margin: 12px 0 4px; }
