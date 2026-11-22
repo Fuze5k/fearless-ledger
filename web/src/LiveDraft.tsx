@@ -59,9 +59,9 @@ export function LiveDraft({ game, n, gamesLeftAfter, taken, us, them, meta, onCh
     : step.type === 'ban' && !step.us
       ? `What ${them.name} usually bans in game ${n}.`
       : step.type === 'ban'
-        ? `Ban what ${them.name} would likely pick: their open-role players' comfort plus their game-${n} picks.`
+        ? `Ban what ${them.name} would likely pick: their open-role players' comfort, their game-${n} picks and what they win with.`
         : step.us
-          ? `Our open-role players' comfort${gamesLeftAfter ? ', plus how much the pick takes away from them for the rest of the series' : ''}.`
+          ? `Our open-role players' comfort, ${them.name}'s record against each champion${gamesLeftAfter ? ', and how much the pick takes away from them for the rest of the series' : ''}.`
           : `What ${them.name} would likely pick next.`
 
   return (

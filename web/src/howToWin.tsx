@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react'
-import { pct } from './fearless'
+import { MIN_GAMES, pct, wl, Z_SHOW, zScore } from './fearless'
 import type { ChampResult, TeamWindow } from './types'
 
 // "How to win" levers: where the team's results move away from its own average. Every lever carries its
 // record and sample; it is a pointer for prep, not a cause (a champion's record includes the rest of those games).
 
-export const MIN_GAMES = 4 // fewer games with or against a champion is not worth a line
-const Z_SHOW = 1 // how far (in standard errors) a record must sit from the team's average to be shown
 const Z_STRONG = 2
 const STRONG_MIN_GAMES = 8 // a "strong" tag needs both the distance and enough games
 
@@ -19,12 +17,6 @@ export interface Lever {
   strong: boolean
 }
 
-/** Standard score of `wins` of `games` against a base win rate. */
-function zScore(games: number, wins: number, base: number): number {
-  if (!games || base <= 0 || base >= 1) return 0
-  return (wins - games * base) / Math.sqrt(games * base * (1 - base))
-}
-
 /** Standard score of the difference of two win rates (pooled). */
 function zDiff([n1, w1]: [number, number], [n2, w2]: [number, number]): number {
   if (!n1 || !n2) return 0
@@ -32,8 +24,6 @@ function zDiff([n1, w1]: [number, number], [n2, w2]: [number, number]): number {
   if (p <= 0 || p >= 1) return 0
   return (w1 / n1 - w2 / n2) / Math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2))
 }
-
-const wl = (games: number, wins: number) => `${wins}-${games - wins}`
 
 function scored(rows: ChampResult[], base: number, minGames = MIN_GAMES) {
   return rows.filter((r) => r.games >= minGames).map((r) => ({ ...r, z: zScore(r.games, r.wins, base) }))

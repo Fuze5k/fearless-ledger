@@ -1,5 +1,5 @@
-import { pct } from './fearless'
-import { howToWin, MIN_GAMES } from './howToWin'
+import { MIN_GAMES, pct } from './fearless'
+import { howToWin } from './howToWin'
 import { insights, MIN_SERIES } from './insights'
 import type { Counted, TeamWindow } from './types'
 import { fmtDate, record } from './shared'

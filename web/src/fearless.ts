@@ -1,6 +1,6 @@
 // Fearless series logic: what is locked, what each player has left, what a pick denies.
 // Pure functions over the aggregate JSON and the coach's plan; no IO.
-import { ROLES, type ChampionMeta, type PlayerPool, type Role, type TeamWindow } from './types'
+import { ROLES, type ChampionMeta, type ChampResult, type PlayerPool, type Role, type TeamWindow } from './types'
 
 export type Side = 'blue' | 'red'
 export type Lineup = Record<Role, string>
@@ -163,6 +163,26 @@ export function expectedAt(w: TeamWindow, n: number, kind: 'picks' | 'bans', loc
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`
 
+export const wl = (games: number, wins: number) => `${wins}-${games - wins}`
+
+export const MIN_GAMES = 4 // fewer games with or against a champion is not worth a line
+export const Z_SHOW = 1 // how far (in standard errors) a record must sit from the team's average to count
+
+/** Standard score of `wins` of `games` against a base win rate. */
+export function zScore(games: number, wins: number, base: number): number {
+  if (!games || base <= 0 || base >= 1) return 0
+  return (wins - games * base) / Math.sqrt(games * base * (1 - base))
+}
+
+/** A team's record with or against a champion when it sits at least Z_SHOW from the team's average. */
+export function standout(rows: ChampResult[], w: TeamWindow, champ: string) {
+  const r = rows.find((x) => x.champ === champ)
+  if (!r || r.games < MIN_GAMES || !w.games) return null
+  const base = w.games_won / w.games
+  const z = zScore(r.games, r.wins, base)
+  return Math.abs(z) >= Z_SHOW ? { ...r, edge: r.wins / r.games - base } : null
+}
+
 // ---- Live draft -------------------------------------------------------------------------------------------
 
 /** Tournament draft order: F = the team with first selection, S = the other one. */
@@ -281,6 +301,8 @@ export interface Suggestion {
  * - their ban: what they usually ban at this game number;
  * - our pick: our open-role players' comfort plus, when games remain, how much the pick denies them later.
  */
+const RECORD_WEIGHT = 0.6 // a 50-point win-rate gap is worth about a 30% pool share
+
 export function suggest(
   step: Step,
   g: PlannedGame,
@@ -312,6 +334,13 @@ export function suggest(
     for (const [c, k] of atN?.picks ?? []) {
       if (out.has(c)) add(c, (0.5 * k) / atN.games, `G${n} pick ${k}/${atN.games}`)
     }
+    if (step.type === 'ban') {
+      // Banning: what they win with is worth more than what they merely pick.
+      for (const c of [...out.keys()]) {
+        const r = standout(them.results_with, them, c)
+        if (r) add(c, RECORD_WEIGHT * r.edge, `they ${wl(r.games, r.wins)} with it`)
+      }
+    }
   } else {
     const open = new Set(openRoles(g.us))
     for (const p of us.players) {
@@ -324,6 +353,11 @@ export function suggest(
       for (const d of denialTable(them.players, [], taken)) {
         if (out.has(d.champ)) add(d.champ, 0.5 * d.denial, `denies ${pct(d.denial)} of their pools`)
       }
+    }
+    // Our pick: champions they lose against go up, champions they beat go down.
+    for (const c of [...out.keys()]) {
+      const r = standout(them.results_against, them, c)
+      if (r) add(c, -RECORD_WEIGHT * r.edge, `they ${wl(r.games, r.wins)} vs it`)
     }
   }
   return [...out.values()].sort((a, b) => b.score - a.score).slice(0, top)
