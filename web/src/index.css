@@ -84,6 +84,11 @@ nav { display: flex; gap: 6px; flex-wrap: wrap; }
 .game-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag { margin-left: 6px; font-size: 11px; padding: 0 5px; border-radius: 4px; background: rgba(255,255,255,.12); }
 .tag.bad { background: var(--bad); color: white; }
+.tag.strong { background: var(--accent); color: #0b1220; }
+.levers li { border-left: 3px solid transparent; }
+.levers .lever-deny, .levers .lever-punish { border-left-color: var(--accent); }
+.levers .lever-allow, .levers .lever-avoid { border-left-color: var(--muted); }
+.levers .lever-side, .levers .lever-order, .levers .lever-series { border-left-color: var(--accent-2); }
 .planner-main { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 14px; }
 .game-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; color: var(--muted); }
 .lineups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -171,6 +176,7 @@ button:disabled { opacity: .5; cursor: default; }
 .sheet-page small { color: #555; }
 .sheet-page .empty { color: #555; }
 .sheet-list { margin: 0; padding-left: 16px; columns: 2; column-gap: 24px; }
+.sheet-list.one { columns: 1; }
 .sheet-table { width: 100%; border-collapse: collapse; }
 .sheet-table th { text-align: left; font-weight: 600; color: #333; border-bottom: 1px solid #999; padding: 2px 6px; }
 .sheet-table td { border-bottom: 1px solid #ddd; padding: 2px 6px; vertical-align: middle; }

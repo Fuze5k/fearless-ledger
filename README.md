@@ -10,6 +10,9 @@ data:
 - **Scout an opponent by game number.** What they pick, ban and lose to bans in games 1 to 5; what they spend in
   game 1 and what they save for game 3 and later; first-pick priorities; phase-1 bans with first or second
   selection; each player's pool, its depth and how often they leave their top five late in a series.
+- **How to beat them.** Records that sit well away from the team's own average: champions they win with (take
+  them away), champions they lose on (leave them open), champions they lose against (draft them), side and pick
+  order, and what happens to them after losing game 1. Each line shows the record and the number of games.
 - **Plan the series.** Lay out picks and bans for every game. Champions picked earlier lock automatically, wasted
   bans and repeats are flagged, and for each game you see what the opponent historically does at that game number,
   what each player has left, and the **denial value** of every champion: how much of the opponent's comfort a pick

@@ -77,6 +77,16 @@ export interface TeamWindow {
   picks_by_slot: Record<string, Counted>
   spend_save: SpendSave[]
   players: PlayerPool[]
+  results_with: ChampResult[] // the team's games and wins with a champion in its own lineup
+  results_against: ChampResult[] // the team's games and wins with a champion in the enemy lineup
+  results_by: Record<'blue' | 'red' | 'first_pick' | 'second_pick', [number, number]> // [games, wins]
+  after_g1: Record<'won_g1' | 'lost_g1', [number, number]> // [series, series won]
+}
+
+export interface ChampResult {
+  champ: string
+  games: number
+  wins: number
 }
 
 export interface SeriesLogGame {

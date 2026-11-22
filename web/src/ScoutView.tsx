@@ -1,4 +1,5 @@
 import { pct } from './fearless'
+import { howToWin, MIN_GAMES } from './howToWin'
 import { insights, MIN_SERIES } from './insights'
 import type { Counted, TeamWindow } from './types'
 import { fmtDate, record } from './shared'
@@ -12,6 +13,24 @@ function CountList({ items, of, n = 5 }: { items: Counted; of?: number; n?: numb
       {items.slice(0, n).map(([c, k]) => (
         <li key={c}>
           <ChampCount name={c} count={k} of={of} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Levers({ w, subject }: { w: TeamWindow; subject: 'opponent' | 'self' }) {
+  const levers = howToWin(w, subject)
+  if (!levers.length) return <p className="empty">no record stands out from the average in this window</p>
+  return (
+    <ul className="insights levers">
+      {levers.map((l, k) => (
+        <li key={k} className={`lever-${l.kind}`}>
+          <span>
+            {l.text}
+            {l.strong && <span className="tag strong">strong</span>}
+          </span>
+          <span className="evidence">{l.evidence}</span>
         </li>
       ))}
     </ul>
@@ -53,6 +72,13 @@ export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; s
             </li>
           ))}
         </ul>
+      </Card>
+
+      <Card
+        title={subject === 'self' ? 'Where we are beatable' : `How to beat ${name}`}
+        hint={`Records that sit apart from the team's average (champions with ${MIN_GAMES}+ games). A pointer for prep, not a cause: a champion's record includes everything else in those games.`}
+      >
+        <Levers w={w} subject={subject} />
       </Card>
 
       <Card title="Draft by game number" hint="What they spend early and what shows up only as the series goes on.">

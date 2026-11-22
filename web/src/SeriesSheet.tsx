@@ -1,4 +1,5 @@
 import { denialTable, pct } from './fearless'
+import { howToWin } from './howToWin'
 import { insights } from './insights'
 import { loadPlan } from './planStore'
 import { fmtDate, record } from './shared'
@@ -51,16 +52,28 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
           </p>
         </header>
 
-        <section>
-          <h3>Key tendencies</h3>
-          <ul className="sheet-list">
-            {insights(w).map((i, k) => (
-              <li key={k}>
-                {i.text} <small>({i.evidence})</small>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="sheet-cols">
+          <section>
+            <h3>Key tendencies</h3>
+            <ul className="sheet-list one">
+              {insights(w).map((i, k) => (
+                <li key={k}>
+                  {i.text} <small>({i.evidence})</small>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <h3>How to beat them</h3>
+            <ul className="sheet-list one">
+              {howToWin(w, 'opponent').slice(0, 6).map((l, k) => (
+                <li key={k}>
+                  {l.text} <small>({l.evidence})</small>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
 
         <section>
           <h3>By game number</h3>

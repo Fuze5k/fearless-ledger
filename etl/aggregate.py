@@ -194,6 +194,7 @@ def team_window(team_id: str, series: list[Series]) -> dict:
         key=lambda x: -x["series"])
 
     return {
+        **results_split(series, games, drafts),
         "series": len(series),
         "games": len(games),
         "series_won": sum(1 for s in series if s.won is True),
@@ -211,6 +212,40 @@ def team_window(team_id: str, series: list[Series]) -> dict:
         "picks_by_slot": by_slot,
         "spend_save": spend_save[:60],
         "players": player_pools(team_id, series),
+    }
+
+
+def results_split(series: list[Series], games: list[Game], drafts: list[Game]) -> dict:
+    """Game results split by what was on the board: the team's own champions, the champions it faced, side,
+    draft position and the first game of the series. Each entry is [games, wins] for the team."""
+    def tally(pairs) -> list[dict]:
+        acc: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+        for champ, won in pairs:
+            acc[champ][0] += 1
+            acc[champ][1] += won
+        return [{"champ": c, "games": n, "wins": w} for c, (n, w) in
+                sorted(acc.items(), key=lambda kv: -kv[1][0]) if n >= 2]
+
+    def record(gs) -> list[int]:
+        gs = list(gs)
+        return [len(gs), sum(g.team["won"] for g in gs)]
+
+    after_g1: dict[str, list[int]] = {"won_g1": [0, 0], "lost_g1": [0, 0]}  # [series, series won]
+    for s in series:
+        if len(s.games) >= 2 and s.games[0].number == 1 and s.won is not None:
+            key = "won_g1" if s.games[0].team["won"] else "lost_g1"
+            after_g1[key][0] += 1
+            after_g1[key][1] += s.won
+    return {
+        "results_with": tally((c, g.team["won"]) for g in games for c in g.lineup_champs(g.team)),
+        "results_against": tally((c, g.team["won"]) for g in games for c in g.lineup_champs(g.opp)),
+        "results_by": {
+            "blue": record(g for g in games if g.side == "blue"),
+            "red": record(g for g in games if g.side == "red"),
+            "first_pick": record(g for g in drafts if g.first_pick),
+            "second_pick": record(g for g in drafts if not g.first_pick),
+        },
+        "after_g1": after_g1,
     }
 
 
