@@ -2,7 +2,7 @@ import type { SeriesLogEntry } from './types'
 import { fmtDate } from './shared'
 import { Card, ChampIcon } from './ui'
 
-// Per-series drafts. Only in the local build (data-local/): the hosted demo ships aggregates only (GRID licence).
+// Per-series drafts. Only in the local build (data-local/): the hosted demo ships aggregates only (GRID license).
 export function SeriesLog({ log, opponentId, teamName }: { log: SeriesLogEntry[]; opponentId: string | null; teamName: string }) {
   const rows = (opponentId ? log.filter((s) => s.opponent.id === opponentId) : log).slice().reverse()
   return (

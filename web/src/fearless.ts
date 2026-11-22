@@ -1,6 +1,6 @@
 // Fearless series logic: what is locked, what each player has left, what a pick denies.
 // Pure functions over the aggregate JSON and the coach's plan; no IO.
-import { ROLES, type ChampionMeta, type Counted, type PlayerPool, type Role, type TeamWindow } from './types'
+import { ROLES, type ChampionMeta, type PlayerPool, type Role, type TeamWindow } from './types'
 
 export type Side = 'blue' | 'red'
 export type Lineup = Record<Role, string>
@@ -160,8 +160,6 @@ export function expectedAt(w: TeamWindow, n: number, kind: 'picks' | 'bans', loc
     .slice(0, top)
     .map(([champ, count]) => ({ champ, count, of }))
 }
-
-export const topN = (c: Counted, n: number) => c.slice(0, n)
 
 export const pct = (x: number) => `${Math.round(x * 100)}%`
 

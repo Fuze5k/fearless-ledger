@@ -42,9 +42,9 @@ cd web && npm install && npm run dev
 `STL_DATA_DIR` points the ETL at another copy of the data. `python3 etl/aggregate.py --with-series-log` also
 builds a local-only view of every series' draft (web/data-local/, served by the dev server, never bundled).
 
-## Data and licences
+## Data and licenses
 
-- Match data: GRID esports data from the hackathon's starter repository, used under its licence for this
+- Match data: GRID esports data from the hackathon's starter repository, used under its license for this
   hackathon only. Nothing derived from it is committed here; the hosted demo shows aggregate statistics only.
 - Champion icons: Riot Data Dragon.
 - Fearless Ledger isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone

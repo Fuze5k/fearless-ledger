@@ -189,7 +189,7 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
           )}
         </section>
         <footer className="sheet-foot">
-          Fearless Ledger · GRID esports data (hackathon licence), aggregates only · Not endorsed by Riot Games.
+          Fearless Ledger · GRID esports data (hackathon license), aggregates only · Not endorsed by Riot Games.
         </footer>
       </article>
     </div>

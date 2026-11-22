@@ -1,7 +1,7 @@
 """Turn build/games.jsonl into the aggregate JSON the web app loads.
 
 Output (web/public/data/): index.json and teams/<team_id>.json. They hold counts, rates and pools only, no
-per-game draft records, so the hosted demo stays within the data licence's "results and statistics" use.
+per-game draft records, so the hosted demo stays within the data license's "results and statistics" use.
 Run `python3 etl/aggregate.py --with-series-log` for a local build that also keeps each team's series log
 (web/data-local/, outside public/ so it never reaches a production build; the dev server serves it).
 Both outputs are derived from the licensed feeds and are git-ignored.
