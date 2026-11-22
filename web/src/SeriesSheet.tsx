@@ -7,12 +7,14 @@ import { ChampIcon } from './ui'
 
 // One printable page for the coach's desk: the opponent at a glance plus our series plan.
 
-function Champs({ items, n }: { items: Counted; n: number }) {
+function Champs({ items, n, of }: { items: Counted; n: number; of: number }) {
   return (
     <span className="sheet-champs">
       {items.slice(0, n).map(([c, k]) => (
         <span key={c}>
-          <ChampIcon name={c} size={18} /> {c} <small>{k}</small>
+          <ChampIcon name={c} size={18} /> {c} <small>
+            {k}/{of}
+          </small>
         </span>
       ))}
     </span>
@@ -44,7 +46,7 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
             {us.name} vs {them.name}
           </h2>
           <p>
-            Fearless series sheet · {them.name}: {w.series} series ({record(w.series_won, w.series)}), {w.games} games,{' '}
+            Fearless series sheet · {them.name}: {w.series} series ({record(w.series_won, w.series_lost, w.series)}), {w.games} games,{' '}
             {fmtDate(w.from)} - {fmtDate(w.to)} ({windowLabel})
           </p>
         </header>
@@ -84,16 +86,16 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
                       {g.games} ({g.wins}W)
                     </td>
                     <td>
-                      {pct(g.blue / g.games)} / {pct(g.first_pick / g.games)}
+                      {pct(g.blue / g.games)} / {g.drafts ? pct(g.first_pick / g.drafts) : '-'}
                     </td>
                     <td>
-                      <Champs items={g.picks} n={3} />
+                      <Champs items={g.picks} n={3} of={g.games} />
                     </td>
                     <td>
-                      <Champs items={g.bans} n={3} />
+                      <Champs items={g.bans} n={3} of={g.drafts} />
                     </td>
                     <td>
-                      <Champs items={g.banned_against} n={2} />
+                      <Champs items={g.banned_against} n={2} of={g.drafts} />
                     </td>
                   </tr>
                 )
@@ -114,7 +116,7 @@ export function SeriesSheet({ us, them, windowLabel }: Props) {
                       {p.name.trim()} <small>depth {p.depth}</small>
                     </td>
                     <td>
-                      <Champs items={p.champs.map((c) => [c.champ, c.games])} n={5} />
+                      <Champs items={p.champs.map((c) => [c.champ, c.games])} n={5} of={p.games} />
                     </td>
                   </tr>
                 ))}

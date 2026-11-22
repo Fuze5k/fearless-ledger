@@ -24,7 +24,10 @@ const teamCache = new Map<string, Promise<TeamProfile>>()
 export function loadTeam(id: string): Promise<TeamProfile> {
   let p = teamCache.get(id)
   if (!p) {
-    p = getJson<TeamProfile>(`teams/${id}.json`)
+    p = getJson<TeamProfile>(`teams/${id}.json`).catch((e: unknown) => {
+      teamCache.delete(id) // a failed load must not stick: the next selection tries again
+      throw e
+    })
     teamCache.set(id, p)
   }
   return p

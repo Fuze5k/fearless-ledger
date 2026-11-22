@@ -42,8 +42,16 @@ class Game:
         return self.team["side"]
 
     @property
+    def full_draft(self) -> bool:
+        return len(self.raw["draft"]) == 20
+
+    @property
     def first_pick(self) -> bool:
-        return self.raw["draft"][6]["team"] == self.team["id"]
+        """Only meaningful for a full draft (seq 7 is the first pick)."""
+        return self.full_draft and self.raw["draft"][6]["team"] == self.team["id"]
+
+    def lineup_champs(self, side: dict) -> list[str]:
+        return [p["champ"] for p in side["players"]]
 
     def picks(self, team_id: str) -> list[dict]:
         return [a for a in self.raw["draft"] if a["type"] == "pick" and a["team"] == team_id]
@@ -73,10 +81,12 @@ def load_games() -> list[dict]:
     if not SRC.exists():
         sys.exit(f"{SRC} not found: run etl/extract.py first")
     games = [json.loads(line) for line in SRC.open(encoding="utf-8")]
-    # Keep finished games with a full draft and two full lineups; report what was dropped.
-    keep = [g for g in games if g["finished"] and len(g["draft"]) == 20 and len(g["teams"]) == 2
+    # Keep finished games with two full lineups: they carry the result and the picks. Draft-order stats
+    # (bans, first pick, slots) use only the games whose draft has all 20 actions.
+    keep = [g for g in games if g["finished"] and len(g["teams"]) == 2
             and all(len(t["players"]) == 5 for t in g["teams"])]
-    print(f"games: {len(games)} read, {len(keep)} kept (finished, 20 draft actions, 5v5 lineups)")
+    full = sum(len(g["draft"]) == 20 for g in keep)
+    print(f"games: {len(games)} read, {len(keep)} kept (finished, 5v5 lineups), {full} with a full draft")
     infer_roles(keep)
     return keep
 
@@ -136,29 +146,33 @@ def ban_phase(seq: int) -> int:
 
 def team_window(team_id: str, series: list[Series]) -> dict:
     games = [g for s in series for g in s.games]
+    names = {s.opponent["id"]: s.opponent["name"] for s in series}  # latest name wins (series are by date)
+    drafts = [g for g in games if g.full_draft]
     by_number: dict[int, dict] = {}
     for n in range(1, 6):
         gs = [g for g in games if g.number == n]
         if not gs:
             continue
+        ds = [g for g in gs if g.full_draft]
         by_number[n] = {
-            "games": len(gs),
+            "games": len(gs),  # denominator for wins, blue and picks
+            "drafts": len(ds),  # denominator for first pick and bans
             "wins": sum(g.team["won"] for g in gs),
             "blue": sum(g.side == "blue" for g in gs),
-            "first_pick": sum(g.first_pick for g in gs),
-            "picks": Counter(a["champ"] for g in gs for a in g.picks(team_id)).most_common(),
-            "bans": Counter(a["champ"] for g in gs for a in g.bans(team_id)).most_common(),
-            "banned_against": Counter(a["champ"] for g in gs for a in g.bans(g.opp["id"])).most_common(),
+            "first_pick": sum(g.first_pick for g in ds),
+            "picks": Counter(c for g in gs for c in g.lineup_champs(g.team)).most_common(),
+            "bans": Counter(a["champ"] for g in ds for a in g.bans(team_id)).most_common(),
+            "banned_against": Counter(a["champ"] for g in ds for a in g.bans(g.opp["id"])).most_common(),
         }
 
     # Their first pick when they hold first pick, and first-phase bans by draft position.
-    f1 = Counter(a["champ"] for g in games if g.first_pick for a in g.picks(team_id) if a["seq"] == 7)
-    phase1_bans = {pos: Counter(a["champ"] for g in games if g.first_pick == (pos == "first")
+    f1 = Counter(a["champ"] for g in drafts if g.first_pick for a in g.picks(team_id) if a["seq"] == 7)
+    phase1_bans = {pos: Counter(a["champ"] for g in drafts if g.first_pick == (pos == "first")
                                 for a in g.bans(team_id) if ban_phase(a["seq"]) == 1).most_common(12)
                    for pos in ("first", "second")}
-    side_vs_pick = Counter(f"{g.side}-{'first' if g.first_pick else 'second'}" for g in games)
+    side_vs_pick = Counter(f"{g.side}-{'first' if g.first_pick else 'second'}" for g in drafts)
     # Picks by draft slot: what they lock early (F1/F2-F3, S1-S2) versus leave to the last rotation.
-    by_slot = {slot: Counter(a["champ"] for g in games for a in g.picks(team_id)
+    by_slot = {slot: Counter(a["champ"] for g in drafts for a in g.picks(team_id)
                              if PICK_SLOT.get(a["seq"]) == slot).most_common(8)
                for slot in PICK_SLOT.values()}
 
@@ -168,10 +182,10 @@ def team_window(team_id: str, series: list[Series]) -> dict:
     for s in multi:
         seen: set[str] = set()
         for g in s.games:
-            for a in g.picks(team_id):
-                if a["champ"] not in seen:
-                    seen.add(a["champ"])
-                    first_use[a["champ"]][g.number] += 1
+            for c in g.lineup_champs(g.team):
+                if c not in seen:
+                    seen.add(c)
+                    first_use[c][g.number] += 1
     spend_save = sorted(
         ({"champ": c, "series": sum(cnt.values()), "by_game": dict(sorted(cnt.items())),
           "g1_share": round(cnt[1] / sum(cnt.values()), 3),
@@ -182,12 +196,14 @@ def team_window(team_id: str, series: list[Series]) -> dict:
     return {
         "series": len(series),
         "games": len(games),
-        "series_won": sum(1 for s in series if s.won),
+        "series_won": sum(1 for s in series if s.won is True),
+        "series_lost": sum(1 for s in series if s.won is False),  # the rest have a tied or partial record
         "games_won": sum(g.team["won"] for g in games),
         "from": series[0].date if series else None,
         "to": series[-1].date if series else None,
         "events": sorted({s.event for s in series}),
-        "opponents": Counter(s.opponent["name"] for s in series).most_common(),
+        "opponents": [{"id": i, "name": names[i], "series": n} for i, n in
+                      Counter(s.opponent["id"] for s in series).most_common()],
         "by_game_number": by_number,
         "first_pick_f1": f1.most_common(15),
         "phase1_bans": phase1_bans,
@@ -209,13 +225,11 @@ def player_pools(team_id: str, series: list[Series]) -> list[dict]:
         late_offpool = Counter()  # game number -> games where the champ was outside the player's top 5
         appearances = []
         for s in series:
-            used = []
             for g in s.games:
                 for q in g.team["players"]:
                     if q["id"] == p["id"]:
                         champs[q["champ"]][0] += 1
                         champs[q["champ"]][1] += int(g.team["won"])
-                        used.append(q["champ"])
                         appearances.append((g.number, q["champ"]))
         ranked = sorted(champs.items(), key=lambda kv: (-kv[1][0], kv[0]))
         top5 = {c for c, _ in ranked[:5]}
@@ -236,7 +250,8 @@ def player_pools(team_id: str, series: list[Series]) -> list[dict]:
 
 def champion_meta(games: list[dict]) -> dict:
     stats: dict[str, dict] = defaultdict(lambda: {"picks": 0, "bans": 0, "wins": 0, "roles": Counter()})
-    for g in games:
+    drafts = [g for g in games if len(g["draft"]) == 20]
+    for g in drafts:
         winners = {t["id"] for t in g["teams"] if t["won"]}
         for a in g["draft"]:
             st = stats[a["champ"]]
@@ -248,7 +263,7 @@ def champion_meta(games: list[dict]) -> dict:
         for t in g["teams"]:
             for p in t["players"]:
                 stats[p["champ"]]["roles"][p["role"]] += 1
-    n = len(games)
+    n = len(drafts)
     return {c: {"picks": s["picks"], "bans": s["bans"], "wins": s["wins"],
                 "presence": round((s["picks"] + s["bans"]) / n, 4),
                 "roles": dict(s["roles"].most_common())}

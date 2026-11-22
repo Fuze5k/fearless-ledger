@@ -89,7 +89,11 @@ export function Planner({ planKey, us, them, champions, meta }: Props) {
       <div className="planner-bar">
         <label>
           Format{' '}
-          <select value={plan.format} onChange={(e) => setPlan((p) => ({ ...p, format: Number(e.target.value) as 3 | 5 }))}>
+          <select value={plan.format} onChange={(e) => {
+              const format = Number(e.target.value) as 3 | 5
+              setPlan((p) => ({ ...p, format }))
+              setActive((a) => Math.min(a, format - 1))
+            }}>
             <option value={3}>Bo3</option>
             <option value={5}>Bo5</option>
           </select>
@@ -117,6 +121,7 @@ export function Planner({ planKey, us, them, champions, meta }: Props) {
       </div>
 
       <LiveDraft
+        key={active}
         game={game}
         n={active + 1}
         gamesLeftAfter={plan.format - active - 1}

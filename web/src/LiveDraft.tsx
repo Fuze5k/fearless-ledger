@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { applyLive, DRAFT_STEPS, stepAt, suggest, undoLive, type PlannedGame } from './fearless'
+import { applyLive, DRAFT_STEPS, hasPlan, startLive, stepAt, suggest, undoLive, type PlannedGame } from './fearless'
 import type { ChampionMeta, TeamWindow } from './types'
 import { Card, ChampIcon } from './ui'
 
@@ -19,12 +19,17 @@ export function LiveDraft({ game, n, gamesLeftAfter, taken, us, them, meta, onCh
   const [error, setError] = useState<string | null>(null)
   const live = game.live
 
+  const start = (weFirst: boolean) => {
+    if (hasPlan(game) && !confirm(`Replace the planned picks and bans of game ${n} with the live draft?`)) return
+    onChange(startLive(game, weFirst))
+  }
+
   if (!live) {
     return (
       <Card title={`Live draft, game ${n}`} hint="Log the real draft action by action. Picks fill the lineup above, locks and pools update, and the next action gets options with their evidence.">
         <div className="live-start">
-          <button onClick={() => onChange({ ...game, live: { weFirst: true, actions: [] } })}>Start: we have first pick</button>
-          <button onClick={() => onChange({ ...game, live: { weFirst: false, actions: [] } })}>Start: {them.name} has first pick</button>
+          <button onClick={() => start(true)}>Start: we have first pick</button>
+          <button onClick={() => start(false)}>Start: {them.name} has first pick</button>
         </div>
       </Card>
     )
@@ -103,7 +108,7 @@ export function LiveDraft({ game, n, gamesLeftAfter, taken, us, them, meta, onCh
         )}
         {step && !options.length && <p className="empty">no data-backed options left for this action</p>}
         <div className="live-tools">
-          <button className="ghost" disabled={!live.actions.length} onClick={() => onChange(undoLive(game))}>
+          <button className="ghost" disabled={!live.actions.length} onClick={() => onChange(undoLive(game, meta))}>
             Undo last
           </button>
           <button className="ghost" onClick={() => onChange({ ...game, live: undefined })} title="Stop logging; the lineup and bans stay">

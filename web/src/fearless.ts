@@ -71,8 +71,12 @@ export function conflicts(plan: SeriesPlan, index: number): Map<string, Conflict
     seen.add(c)
   }
   const bans = [...plan.games[index].usBans, ...plan.games[index].themBans].filter(Boolean)
+  const banned = new Set<string>()
   for (const c of bans) {
     if (locked.has(c)) out.set(`ban:${c}`, { champ: c, reason: `ban wasted: locked since game ${locked.get(c)}` })
+    else if (banned.has(c)) out.set(`ban:${c}`, { champ: c, reason: 'banned twice in this game' })
+    else if (seen.has(c)) out.set(`ban:${c}`, { champ: c, reason: 'banned and picked in the same game' })
+    banned.add(c)
   }
   return out
 }
@@ -149,11 +153,12 @@ export interface Expected {
 /** What the opponent picked (or banned) in game `n` historically, minus what is locked now. */
 export function expectedAt(w: TeamWindow, n: number, kind: 'picks' | 'bans', locked: Set<string>, top = 8): Expected[] {
   const g = w.by_game_number[String(n)]
-  if (!g) return []
+  const of = g ? (kind === 'picks' ? g.games : g.drafts) : 0
+  if (!g || !of) return []
   return g[kind]
     .filter(([c]) => !locked.has(c))
     .slice(0, top)
-    .map(([champ, count]) => ({ champ, count, of: g.games }))
+    .map(([champ, count]) => ({ champ, count, of }))
 }
 
 export const topN = (c: Counted, n: number) => c.slice(0, n)
@@ -189,7 +194,48 @@ export function takenIn(plan: SeriesPlan, index: number): Set<string> {
   )
 }
 
-/** Log the next draft action. A pick goes to the open role the champion is played in most often. */
+/**
+ * Best role for each of a team's picks so far: the one-to-one assignment that fits how often each champion is
+ * played in each role. Re-solved after every pick, so a flex pick moves when a later pick needs its role.
+ */
+export function assignRoles(champs: string[], meta: Record<string, ChampionMeta>): Lineup {
+  const share = (c: string, r: Role) => {
+    const roles = meta[c]?.roles ?? {}
+    const total = Object.values(roles).reduce((x, y) => x + (y ?? 0), 0)
+    return total ? (roles[r] ?? 0) / total : 0
+  }
+  let best: Role[] = []
+  let bestScore = -1
+  const walk = (i: number, used: Role[], score: number) => {
+    if (i === champs.length) {
+      if (score > bestScore) [best, bestScore] = [used, score]
+      return
+    }
+    for (const r of ROLES) if (!used.includes(r)) walk(i + 1, [...used, r], score + share(champs[i], r))
+  }
+  walk(0, [], 0)
+  const lineup = emptyLineup()
+  champs.forEach((c, i) => (lineup[best[i]] = c))
+  return lineup
+}
+
+/** The champions one side has picked so far in the live draft, in draft order. */
+const livePicks = (live: LiveDraft, us: boolean) =>
+  live.actions.filter((_, i) => stepAt(i, live.weFirst).type === 'pick' && stepAt(i, live.weFirst).us === us).map((a) => a.champ)
+
+/** Start logging a game's real draft. It replaces the planned picks and bans of that game. */
+export const startLive = (g: PlannedGame, weFirst: boolean): PlannedGame => ({
+  ...g,
+  us: emptyLineup(),
+  them: emptyLineup(),
+  usBans: ['', '', '', '', ''],
+  themBans: ['', '', '', '', ''],
+  live: { weFirst, actions: [] },
+})
+
+export const hasPlan = (g: PlannedGame) => picksOf(g).length > 0 || [...g.usBans, ...g.themBans].some(Boolean)
+
+/** Log the next draft action: a pick re-solves that side's roles, a ban fills the next ban slot. */
 export function applyLive(g: PlannedGame, champ: string, meta: Record<string, ChampionMeta>): PlannedGame | string {
   const live = g.live
   if (!live) return 'live draft not started'
@@ -197,15 +243,9 @@ export function applyLive(g: PlannedGame, champ: string, meta: Record<string, Ch
   const step = stepAt(live.actions.length, live.weFirst)
   if (step.type === 'pick') {
     const team = step.us ? 'us' : 'them'
-    const open = openRoles(g[team])
-    if (!open.length) return 'all five roles are already filled'
-    const roles = meta[champ]?.roles ?? {}
-    const role = open.reduce((best, r) => ((roles[r] ?? 0) > (roles[best] ?? 0) ? r : best), open[0])
-    return {
-      ...g,
-      [team]: { ...g[team], [role]: champ },
-      live: { ...live, actions: [...live.actions, { champ, target: role }] },
-    }
+    const lineup = assignRoles([...livePicks(live, step.us), champ], meta)
+    const role = ROLES.find((r) => lineup[r] === champ) as Role
+    return { ...g, [team]: lineup, live: { ...live, actions: [...live.actions, { champ, target: role }] } }
   }
   const key = step.us ? 'usBans' : 'themBans'
   const slot = g[key].findIndex((b) => !b)
@@ -217,8 +257,8 @@ export function applyLive(g: PlannedGame, champ: string, meta: Record<string, Ch
   }
 }
 
-/** Remove the last logged action and clear the slot it filled (if the coach has not changed that slot since). */
-export function undoLive(g: PlannedGame): PlannedGame {
+/** Remove the last logged action: a ban clears its slot, a pick re-solves that side's roles without it. */
+export function undoLive(g: PlannedGame, meta: Record<string, ChampionMeta>): PlannedGame {
   const live = g.live
   if (!live?.actions.length) return g
   const last = live.actions[live.actions.length - 1]
@@ -228,9 +268,7 @@ export function undoLive(g: PlannedGame): PlannedGame {
     const key = step.us ? 'usBans' : 'themBans'
     return { ...g, [key]: g[key].map((b, i) => (i === last.target && b === last.champ ? '' : b)), live: rest }
   }
-  const team = step.us ? 'us' : 'them'
-  const role = last.target
-  return { ...g, [team]: g[team][role] === last.champ ? { ...g[team], [role]: '' } : g[team], live: rest }
+  return { ...g, [step.us ? 'us' : 'them']: assignRoles(livePicks(rest, step.us), meta), live: rest }
 }
 
 export interface Suggestion {

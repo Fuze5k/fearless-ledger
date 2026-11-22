@@ -53,7 +53,8 @@ def game_record(series: dict, meta: dict, game: dict, number: int) -> dict:
                 "champ": (p.get("character") or {}).get("name"),
                 "role": ROLES[i] if i < len(ROLES) else None,
             }
-            for i, p in enumerate(team.get("players") or [])
+            # A listed substitute who did not play has no champion: leave them out before roles are numbered.
+            for i, p in enumerate(q for q in team.get("players") or [] if (q.get("character") or {}).get("name"))
         ]
         teams.append({"id": team["id"], "name": team["name"], "side": team.get("side"),
                       "won": bool(team.get("won")), "players": players})

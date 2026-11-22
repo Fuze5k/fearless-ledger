@@ -52,9 +52,9 @@ export function insights(w: TeamWindow): Insight[] {
     out.push({ text: <>Saves <b>{save.champ}</b> for game 3+</>, evidence: `${lateUses(save)} of ${save.series} series` })
   }
   const g1 = w.by_game_number['1']
-  if (g1?.banned_against.length) {
+  if (g1?.banned_against.length && g1.drafts) {
     const [champ, n] = g1.banned_against[0]
-    out.push({ text: <>Opponents ban <b>{champ}</b> against them in game 1</>, evidence: `${n} of ${g1.games} games` })
+    out.push({ text: <>Opponents ban <b>{champ}</b> against them in game 1</>, evidence: `${n} of ${g1.drafts} games` })
   }
   const late = w.players
     .map((p) => {

@@ -31,7 +31,8 @@ export interface DataIndex {
 }
 
 export interface GameNumberStats {
-  games: number
+  games: number // denominator for wins, blue and picks
+  drafts: number // games with all 20 draft actions: denominator for first pick and bans
   wins: number
   blue: number
   first_pick: number
@@ -63,11 +64,12 @@ export interface TeamWindow {
   series: number
   games: number
   series_won: number
+  series_lost: number // the rest are tied or partial records
   games_won: number
   from: string | null
   to: string | null
   events: string[]
-  opponents: Counted
+  opponents: { id: string; name: string; series: number }[]
   by_game_number: Record<string, GameNumberStats>
   first_pick_f1: Counted
   phase1_bans: { first: Counted; second: Counted }

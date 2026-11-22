@@ -43,9 +43,8 @@ function Shell({ index }: { index: DataIndex }) {
   // Default opponent: the team we met most often in the recent window.
   useEffect(() => {
     if (them || usTeam?.state !== 'ready') return
-    const name = usTeam.value.windows.recent.opponents[0]?.[0]
-    const id = index.teams.find((t) => t.name === name)?.id
-    if (id) setThem(id)
+    const id = usTeam.value.windows.recent.opponents[0]?.id
+    if (id && index.teams.some((t) => t.id === id)) setThem(id)
   }, [them, usTeam, index.teams])
 
   useEffect(() => {

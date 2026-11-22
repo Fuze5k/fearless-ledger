@@ -20,6 +20,11 @@ function CountList({ items, of, n = 5 }: { items: Counted; of?: number; n?: numb
 
 export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; subject: 'opponent' | 'self' }) {
   const fpGames = Object.values(w.by_game_number).reduce((s, g) => s + g.first_pick, 0)
+  // Games (with a full draft) where they had first or second selection: the denominator for phase-1 bans.
+  const posGames = (pos: 'first' | 'second') =>
+    Object.entries(w.side_vs_pick)
+      .filter(([k]) => k.endsWith(`-${pos}`))
+      .reduce((s, [, v]) => s + v, 0)
   const spend = w.spend_save.filter((s) => s.series >= MIN_SERIES && s.g1_share >= 0.5).slice(0, 8)
   const save = w.spend_save
     .filter((s) => s.series >= MIN_SERIES && s.late_share >= 0.4)
@@ -33,7 +38,7 @@ export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; s
           {name}
         </h2>
         <p>
-          {w.series} series ({record(w.series_won, w.series)}), {w.games} games ({record(w.games_won, w.games)}),{' '}
+          {w.series} series ({record(w.series_won, w.series_lost, w.series)}), {w.games} games ({record(w.games_won, w.games - w.games_won, w.games)}),{' '}
           {fmtDate(w.from)} - {fmtDate(w.to)} · {w.events.join(', ')}
         </p>
         {subject === 'self' && <p className="hint">What an opponent's analyst sees when they scout you.</p>}
@@ -65,14 +70,14 @@ export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; s
               <div className="gn-col" key={n}>
                 <h4>Game {n}</h4>
                 <p className="gn-meta">
-                  {g.games} games · won {g.wins} · blue {pct(g.blue / g.games)} · first pick {pct(g.first_pick / g.games)}
+                  {g.games} games · won {g.wins} · blue {pct(g.blue / g.games)} · first pick {g.drafts ? pct(g.first_pick / g.drafts) : '-'}
                 </p>
                 <h5>Their picks</h5>
                 <CountList items={g.picks} of={g.games} />
                 <h5>Their bans</h5>
-                <CountList items={g.bans} of={g.games} />
+                <CountList items={g.bans} of={g.drafts} />
                 <h5>Banned against them</h5>
-                <CountList items={g.banned_against} of={g.games} n={3} />
+                <CountList items={g.banned_against} of={g.drafts} n={3} />
               </div>
             )
           })}
@@ -117,11 +122,11 @@ export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; s
           <div className="two-col tight">
             <div>
               <h5>With first pick</h5>
-              <CountList items={w.phase1_bans.first} n={6} />
+              <CountList items={w.phase1_bans.first} of={posGames('first')} n={6} />
             </div>
             <div>
               <h5>With second pick</h5>
-              <CountList items={w.phase1_bans.second} n={6} />
+              <CountList items={w.phase1_bans.second} of={posGames('second')} n={6} />
             </div>
           </div>
         </Card>
@@ -140,7 +145,7 @@ export function ScoutView({ w, name, subject }: { w: TeamWindow; name: string; s
               <ul className="count-list">
                 {p.champs.slice(0, 7).map((c) => (
                   <li key={c.champ}>
-                    <ChampCount name={c.champ} count={c.games} note={`won ${c.wins} of ${c.games}`} />
+                    <ChampCount name={c.champ} count={c.games} of={p.games} note={`won ${c.wins} of ${c.games}`} />
                     <span className="wr">{pct(c.wins / c.games)}</span>
                   </li>
                 ))}
