@@ -7,32 +7,15 @@ import {
   lockedBefore,
   pct,
   remainingPools,
+  takenIn,
   type Lineup,
   type PlannedGame,
   type SeriesPlan,
 } from './fearless'
-import { ROLES, type TeamWindow } from './types'
+import { LiveDraft } from './LiveDraft'
+import { loadPlan, savePlan } from './planStore'
+import { ROLES, type ChampionMeta, type TeamWindow } from './types'
 import { Card, ChampCount, ChampIcon } from './ui'
-
-const STORE = 'fearless-ledger:plan:'
-
-function loadPlan(key: string): SeriesPlan {
-  try {
-    const raw = localStorage.getItem(STORE + key)
-    if (raw) return JSON.parse(raw) as SeriesPlan
-  } catch (e) {
-    console.warn('saved plan unreadable, starting empty:', e)
-  }
-  return emptyPlan()
-}
-
-function savePlan(key: string, plan: SeriesPlan) {
-  try {
-    localStorage.setItem(STORE + key, JSON.stringify(plan))
-  } catch (e) {
-    console.warn('plan not saved (storage blocked):', e)
-  }
-}
 
 function ChampInput({
   value,
@@ -61,9 +44,10 @@ interface Props {
   us: { name: string; w: TeamWindow }
   them: { name: string; w: TeamWindow }
   champions: string[]
+  meta: Record<string, ChampionMeta>
 }
 
-export function Planner({ planKey, us, them, champions }: Props) {
+export function Planner({ planKey, us, them, champions, meta }: Props) {
   const [plan, setPlan] = useState<SeriesPlan>(() => loadPlan(planKey))
   const [active, setActive] = useState(0)
   const champSet = useMemo(() => new Set(champions), [champions])
@@ -77,6 +61,7 @@ export function Planner({ planKey, us, them, champions }: Props) {
   const bad = conflicts(plan, active)
   // Champions taken in this game are also unavailable for the suggestions below.
   const taken = new Set([...locked.keys(), ...ROLES.map((r) => game.us[r]), ...ROLES.map((r) => game.them[r])].filter(Boolean))
+  const unavailable = takenIn(plan, active) // also excludes this game's bans: what the live draft may still log
 
   const update = (fn: (g: PlannedGame) => PlannedGame) =>
     setPlan((p) => ({ ...p, games: p.games.map((g, i) => (i === active ? fn(g) : g)) }))
@@ -89,8 +74,8 @@ export function Planner({ planKey, us, them, champions }: Props) {
   const ourLeft = remainingPools(us.w.players, taken)
   const denial = denialTable(them.w.players, us.w.players, taken).slice(0, 12)
   const n = active + 1
-  const expPicks = expectedAt(them.w, n, 'picks', taken)
-  const expBans = expectedAt(them.w, n, 'bans', taken)
+  const expPicks = expectedAt(them.w, n, 'picks', unavailable)
+  const expBans = expectedAt(them.w, n, 'bans', unavailable)
   const remaining = plan.format - n
 
   return (
@@ -130,6 +115,17 @@ export function Planner({ planKey, us, them, champions }: Props) {
           Clear plan
         </button>
       </div>
+
+      <LiveDraft
+        game={game}
+        n={active + 1}
+        gamesLeftAfter={plan.format - active - 1}
+        taken={unavailable}
+        us={us}
+        them={them}
+        meta={meta}
+        onChange={(g) => update(() => g)}
+      />
 
       <div className="planner-main">
         <Card title={`Game ${n} plan`} hint="Type or pick a champion. Picks lock for the rest of the series; bans do not.">

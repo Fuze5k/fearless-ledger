@@ -14,11 +14,21 @@ data:
   bans and repeats are flagged, and for each game you see what the opponent historically does at that game number,
   what each player has left, and the **denial value** of every champion: how much of the opponent's comfort a pick
   removes for the rest of the series, next to what it costs your own pools.
+- **Run the draft live.** Log the real draft action by action. Picks fill the lineup and lock for later games,
+  and each next action gets options with their evidence: what the opponent's open-role players and their game-N
+  history point to, or what our players can still play and how much it takes away from the opponent.
+- **Print the series sheet.** One A4 page: the opponent's tendencies, their picks and bans by game number, player
+  pools, denial targets and our plan for every game.
 - **Self-scout.** The same views for your own team, to see where you are predictable.
 
 Every number shows its sample ("4 of 5 series"). The tool highlights options; the coach decides.
 
 ## Run it
+
+The hosted demo is rebuilt on every push by `.github/workflows/pages.yml`, which clones the data, runs the
+ETL and publishes the app with aggregate statistics only.
+
+Locally:
 
 The match data is licensed to hackathon participants and is not in this repository.
 

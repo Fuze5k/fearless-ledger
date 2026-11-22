@@ -4,12 +4,13 @@ import { useIcons } from './ddragon'
 import { Planner } from './Planner'
 import { ScoutView } from './ScoutView'
 import { SeriesLog } from './SeriesLog'
-import type { DataIndex, TeamProfile, WindowKey } from './types'
+import { SeriesSheet } from './SeriesSheet'
+import type { ChampionMeta, DataIndex, TeamProfile, WindowKey } from './types'
 import { IconContext } from './shared'
 
 const DEFAULT_US = 'Cloud9 Kia'
 const MIN_TEAM_SERIES = 5 // fewer series than this is not enough to scout
-type Tab = 'scout' | 'plan' | 'self' | 'log'
+type Tab = 'scout' | 'plan' | 'sheet' | 'self' | 'log'
 const PREFS = 'fearless-ledger:prefs'
 
 interface Prefs {
@@ -85,6 +86,7 @@ function Shell({ index }: { index: DataIndex }) {
   const tabs: [Tab, string][] = [
     ['scout', 'Scout opponent'],
     ['plan', 'Series planner'],
+    ['sheet', 'Series sheet'],
     ['self', 'Self-scout'],
   ]
   if (index.local) tabs.push(['log', 'Series drafts'])
@@ -106,9 +108,6 @@ function Shell({ index }: { index: DataIndex }) {
               <option value="all">all 2025-2026</option>
             </select>
           </label>
-          <button className="ghost" onClick={() => window.print()}>
-            Print sheet
-          </button>
         </div>
         <nav>
           {tabs.map(([k, label]) => (
@@ -118,8 +117,8 @@ function Shell({ index }: { index: DataIndex }) {
           ))}
         </nav>
       </header>
-      <main>
-        <Body tab={tab} win={win} us={usTeam} them={themTeam} champions={champions} />
+      <main className={`tab-${tab}`}>
+        <Body tab={tab} win={win} windowLabel={win === 'recent' ? `last ${index.recent_series} series` : 'all 2025-2026'} us={usTeam} them={themTeam} champions={champions} meta={index.champions} />
       </main>
       <footer>
         <p>
@@ -140,15 +139,19 @@ function Shell({ index }: { index: DataIndex }) {
 function Body({
   tab,
   win,
+  windowLabel,
   us,
   them,
   champions,
+  meta,
 }: {
   tab: Tab
   win: WindowKey
+  windowLabel: string
   us: Loadable<TeamProfile> | null
   them: Loadable<TeamProfile> | null
   champions: string[]
+  meta: Record<string, ChampionMeta>
 }) {
   const wait = (t: Loadable<TeamProfile> | null, what: string) =>
     !t ? (
@@ -168,6 +171,14 @@ function Body({
   if (them?.state !== 'ready') return wait(them, 'an opponent')
   if (tab === 'scout') return <ScoutView w={them.value.windows[win]} name={them.value.name} subject="opponent" />
   if (us?.state !== 'ready') return wait(us, 'your team')
+  if (tab === 'sheet')
+    return (
+      <SeriesSheet
+        us={{ id: us.value.id, name: us.value.name, w: us.value.windows[win] }}
+        them={{ id: them.value.id, name: them.value.name, w: them.value.windows[win] }}
+        windowLabel={windowLabel}
+      />
+    )
   return (
     <Planner
       key={`${us.value.id}:${them.value.id}`}
@@ -175,6 +186,7 @@ function Body({
       us={{ name: us.value.name, w: us.value.windows[win] }}
       them={{ name: them.value.name, w: them.value.windows[win] }}
       champions={champions}
+      meta={meta}
     />
   )
 }
